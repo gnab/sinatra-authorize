@@ -2,9 +2,6 @@ require 'sinatra/base'
 
 module Sinatra
   module Authorize
-    ALL_ARGS  = [:all, :any, :everybody, :everyone]
-    NONE_ARGS = [:none, :nobody]
-
     class Condition < Proc; end
 
     def authorize(opts = {}, &block)
@@ -39,30 +36,14 @@ module Sinatra
       condition &(authorize_condition(:deny, args))
     end
 
-    def authorize_condition(kind, args)
-      Condition.new { settings.authorize_do.bind(self).call(kind, args) }
+    def authorize_condition(rule, args)
+      Condition.new { settings.authorize_do.bind(self).call(rule, args) }
     end
 
     class << self
       def registered(app)
-        app.authorize do |kind, args|
-          allow_default = lambda do |args|
-            if args == [] || ALL_ARGS.include?(args.first)
-              true
-            elsif NONE_ARGS.include?(args.first)
-              false
-            else
-              raise "Unknown authorization rule argument: #{args}."
-            end
-          end
-
-          if kind == :allow
-            allow_default.call(args)
-          elsif kind == :deny
-            !allow_default.call(args)
-          else
-            raise "Unknown authorization rule: #{kind}."
-          end
+        app.authorize do |rule, args|
+          raise "No authorize block is specified."
         end
 
         app.class_eval do

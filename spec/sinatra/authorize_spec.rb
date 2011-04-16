@@ -27,6 +27,29 @@ shared_examples_for "when no default authorization is set" do
 end
 
 describe Sinatra::Authorize do
+  
+  before :all do
+    app.authorize  do |rule, args|
+      allow_default = lambda do |args|
+        if args == [] || args == [:all]
+          true
+        elsif args == [:none]
+          false
+        else
+          raise "Unknown authorization rule argument: #{args}."
+        end
+      end
+
+      if rule == :allow
+        allow_default.call(args)
+      elsif rule == :deny
+        !allow_default.call(args)
+      else
+        raise "Unknown authorization rule: #{rule}."
+      end
+    end
+  end
+
   before do
     app.reset!
   end
