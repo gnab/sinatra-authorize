@@ -68,7 +68,7 @@ routes:
     end
 
     # Only run for authorized user requests, because of override rule 
-    get '/content/:id' :allow => :user do
+    get '/content/:id', :allow => :user do
     end
 
     # Only run for authorized admin requests, because of override rule 
