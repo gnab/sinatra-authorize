@@ -11,6 +11,10 @@ module SpecHelper
   def app
     @app ||= Sinatra::Application
   end
+
+  def reset!
+    @app = nil
+  end
 end
 
 RSpec.configure do |config|

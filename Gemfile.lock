@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    sinatra-authorize (0.0.0)
+    sinatra-authorize (0.0.1)
       sinatra (>= 1.2)
 
 GEM

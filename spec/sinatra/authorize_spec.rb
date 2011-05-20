@@ -1,148 +1,59 @@
 require File.join(File.dirname(__FILE__), '..', 'spec_helper')
 
-shared_examples_for "when no default authorization is set" do
-  it 'should allow route with allow all rule' do
-    app.get('/', :allow => :all) {}
-    get '/'
-    last_response.status.should == 200
-  end
-
-  it 'should allow route with deny none rule' do
-    app.get('/', :deny => :none) {}
-    get '/'
-    last_response.status.should == 200
-  end
-
-  it 'should deny route with deny all rule' do
-    app.get('/', :deny => :all) {}
-    get '/'
-    last_response.status.should == 403
-  end
-
-  it 'should deny route with allow none rule' do
-    app.get('/', :allow => :none) {}
-    get '/'
-    last_response.status.should == 403
-  end
+def set_and_get(route = '/', rules = {})
+  app.get(route, rules) {}
+  get route
 end
 
 describe Sinatra::Authorize do
-  
-  before :all do
-    app.authorize  do |rule, args|
-      allow_default = lambda do |args|
-        if args == [] || args == [:all]
-          true
-        elsif args == [:none]
-          false
-        else
-          raise "Unknown authorization rule argument: #{args}."
-        end
-      end
-
-      if rule == :allow
-        allow_default.call(args)
-      elsif rule == :deny
-        !allow_default.call(args)
-      else
-        raise "Unknown authorization rule: #{rule}."
-      end
-    end
-  end
-
-  before do
+  before :each do
     app.reset!
-  end
-
-  it 'should allow routes by default' do
-    app.get('/') {}
-    get '/'
-    last_response.status.should == 200
-  end  
-
-  it_behaves_like "when no default authorization is set"
-
-  context "#authorize :allow" do
-    before do
-      app.authorize :allow
+    if app.respond_to? :authorize_default
+      class << app; undef_method(:authorize_default); end
     end
-
-    it 'should allow routes by default' do
-      app.get('/') {}
-      get '/'
-      last_response.status.should == 200
-    end
-
-    it_behaves_like "when no default authorization is set"
-
-    context ' => :all' do
-      before do
-        app.authorize :allow => :all
-      end
-
-      it 'should allow routes by default' do
-        app.get('/') {}
-        get '/'
-        last_response.status.should == 200
-      end
-
-      it_behaves_like "when no default authorization is set"
-    end
-
-    context ' => :none' do
-      before do
-        app.authorize :allow => :none
-      end
-
-      it 'should deny routes by default' do
-        app.get('/') {}
-        get '/'
-        last_response.status.should == 403
-      end
-
-      it_behaves_like "when no default authorization is set"
+    if app.respond_to? :authorize_block
+      class << app; undef_method(:authorize_block); end
     end
   end
 
-  context '#authorize :deny' do
-    before do
-      app.authorize :deny
+  context 'defining route' do
+    it 'should be possible to set allow rule' do
+      app.get '/', :allow => :all do end
     end
 
-    it 'should deny routes by default' do
-      app.get('/') {}
-      get '/'
-      last_response.status.should == 403
+    it 'should be possible to set deny rule' do
+      app.get '/', :deny => :all do end
+    end
+  end
+
+  context 'defining authorize block' do
+    it 'should be possible to define' do
+      app.authorize do |rule, args| end
     end
 
-    it_behaves_like "when no default authorization is set"
-
-    context ' => :all' do
-      before do
-        app.authorize :deny => :all
-      end
-
-      it 'should deny routes by default' do
-        app.get('/') {}
-        get '/'
-        last_response.status.should == 403
-      end
-
-      it_behaves_like "when no default authorization is set"
+    it 'should be possible to set default route' do
+      app.authorize :allow => :all do |rule, args| end
     end
 
-    context ' => :none' do
-      before do
-        app.authorize :deny => :none
-      end
+    it 'should use default route :allow => [] when no route is set' do
+      app.authorize do |rule, args| end
+      authorize_block = mock('authorize_block')
+      authorize_block.should_receive(:call).with(:allow, [])
+      app.authorize_block.should_receive(:bind).and_return(authorize_block)
+      set_and_get
+    end
+  end
 
-      it 'should allow routes by default' do
-        app.get('/') {}
-        get '/'
-        last_response.status.should == 200
-      end
+  context 'authorize block not defined' do
+    it 'should raise exception when default rule is set' do
+      app.authorize :allow => :all
+      expect { set_and_get }.to raise_error(
+        RuntimeError, 'No authorize block is defined.')
+    end
 
-      it_behaves_like "when no default authorization is set"
+    it 'should raise exception when route rule is set' do
+      expect { set_and_get '/', :allow => :all }.to raise_error(
+        RuntimeError, 'No authorize block is defined.')
     end
   end
 end

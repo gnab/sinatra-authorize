@@ -9,22 +9,18 @@ module Sinatra
 
       if opts[:deny]
         args = *(opts[:deny])
-        set(:authorize_default, Proc.new {
-          authorize_condition(:deny, args)
-        })
+        set :authorize_default, Proc.new { authorize_condition(:deny, args) }
       else
         args = *(opts[:allow] || [])
-        set(:authorize_default, Proc.new {
-          authorize_condition(:allow, args)
-        })
+        set :authorize_default, Proc.new { authorize_condition(:allow, args) }
       end
 
       if block_given?
-        define_method(:authorize_do_block, block)
-        authorize_do = instance_method(:authorize_do_block)
-        remove_method(:authorize_do_block)
+        define_method(:authorize_block, block)
+        authorize_block = instance_method(:authorize_block)
+        remove_method(:authorize_block)
 
-        set :authorize_do, Proc.new { authorize_do }
+        set :authorize_block, Proc.new { authorize_block }
       end
     end
 
@@ -37,15 +33,17 @@ module Sinatra
     end
 
     def authorize_condition(rule, args)
-      Condition.new { settings.authorize_do.bind(self).call(rule, args) }
+      Condition.new do 
+        unless settings.respond_to? :authorize_block
+          raise "No authorize block is defined."
+        end
+
+        settings.authorize_block.bind(self).call(rule, args) 
+      end
     end
 
     class << self
       def registered(app)
-        app.authorize do |rule, args|
-          raise "No authorize block is specified."
-        end
-
         app.class_eval do
           alias :old_process_route :process_route
 
@@ -64,7 +62,11 @@ module Sinatra
 
           def authorize_route(conditions)
             conditions = conditions.dup
-            conditions.unshift(settings.authorize_default)
+
+            if settings.respond_to? :authorize_default
+              conditions.unshift(settings.authorize_default)
+            end
+            
             conditions = conditions.collect { |cond| instance_eval(&cond) }
             conditions.select { |allow| allow == true || allow == false }.last
           end
