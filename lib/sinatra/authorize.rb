@@ -2,7 +2,13 @@ require 'sinatra/base'
 
 module Sinatra
   module Authorize
-    class Condition < Proc; end
+    class Condition < Proc
+      attr_reader :rule
+      def initialize(rule, &block)
+        @rule = rule
+        super(&block)
+      end
+    end
 
     def authorize(opts = {}, &block)
       opts = {opts => []} if opts.is_a?(Symbol)
@@ -33,11 +39,7 @@ module Sinatra
     end
 
     def authorize_condition(rule, args)
-      Condition.new do 
-        unless settings.respond_to? :authorize_block
-          raise "No authorize block is defined."
-        end
-
+      Condition.new rule do
         settings.authorize_block.bind(self).call(rule, args) 
       end
     end
@@ -61,14 +63,16 @@ module Sinatra
           end
 
           def authorize_route(conditions)
-            conditions = conditions.dup
-
-            if settings.respond_to? :authorize_default
-              conditions.unshift(settings.authorize_default)
+            unless settings.respond_to? :authorize_block
+              raise "No authorize block is defined."
             end
-            
-            conditions = conditions.collect { |cond| instance_eval(&cond) }
-            conditions.select { |allow| allow == true || allow == false }.last
+
+            [settings.authorize_default, *conditions].reverse.each do |cond|
+              value = instance_eval(&cond)
+              return value if value == true || value == false
+            end
+
+            settings.authorize_default.rule == :allow
           end
         end
       end
